@@ -4,7 +4,7 @@ struct LoginView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var isRegistering = false
-    @State private var isLoggedIn = false
+    @AppStorage("isLoggedIn") private var isLoggedIn = false
 
     var body: some View {
         VStack {
