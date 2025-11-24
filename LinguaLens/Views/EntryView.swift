@@ -1,8 +1,10 @@
 import SwiftUI
 
 struct EntryView: View {
+    @StateObject private var supabase = SupabaseManager.shared
     @State private var showLogin = false
     @State private var animate = false
+    @State private var isCheckingAuth = true
     
     var body: some View {
         NavigationStack {
@@ -13,21 +15,39 @@ struct EntryView: View {
                                endPoint: .bottomTrailing)
                     .ignoresSafeArea()
                 
-                if showLogin {
-                    LoginView()
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
-                } else {
+                if isCheckingAuth {
                     SplashView(animate: $animate)
                         .onAppear {
                             withAnimation(.easeInOut(duration: 1.8)) {
                                 animate = true
                             }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
-                                withAnimation(.easeInOut(duration: 0.6)) {
-                                    showLogin = true
+                        }
+                } else if supabase.isAuthenticated {
+                    HomeView(email: supabase.userEmail)
+                        .transition(.opacity)
+                } else {
+                    if showLogin {
+                        LoginView()
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    } else {
+                        SplashView(animate: $animate)
+                            .onAppear {
+                                withAnimation(.easeInOut(duration: 1.8)) {
+                                    animate = true
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+                                    withAnimation(.easeInOut(duration: 0.6)) {
+                                        showLogin = true
+                                    }
                                 }
                             }
-                        }
+                    }
+                }
+            }
+            .task {
+                await supabase.checkAuthStatus()
+                await MainActor.run {
+                    isCheckingAuth = false
                 }
             }
         }

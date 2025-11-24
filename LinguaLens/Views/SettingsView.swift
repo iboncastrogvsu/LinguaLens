@@ -2,11 +2,13 @@ import SwiftUI
 
 struct SettingsView: View {
     let email: String
-    @AppStorage("isLoggedIn") private var isLoggedIn = true
-    @AppStorage("defaultLanguage") private var defaultLanguage = "Spanish"
+    @StateObject private var supabase = SupabaseManager.shared
+    @State private var defaultLanguage = "English"
     @State private var showLogoutAlert = false
+    @State private var isLoggingOut = false
+    @State private var isSavingLanguage = false
     
-    let languages = ["Spanish", "French", "German", "Italian", "Portuguese", "Chinese", "Japanese", "Korean", "Arabic", "Russian"]
+    let languages = ["English", "Spanish", "French", "German", "Italian", "Portuguese", "Chinese", "Japanese", "Korean", "Arabic", "Russian"]
     
     var body: some View {
         NavigationStack {
@@ -25,20 +27,15 @@ struct SettingsView: View {
                                 .foregroundStyle(.white)
                                 .shadow(radius: 10)
                             
-                            Text("User Profile")
+                            Text(supabase.userName.isEmpty ? "User Profile" : "@\(supabase.userName)")
                                 .font(.title2)
                                 .fontWeight(.semibold)
                                 .foregroundStyle(.white)
-                            
-                            Text(email)
-                                .font(.subheadline)
-                                .foregroundStyle(.white.opacity(0.8))
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 8)
-                                .background(Color.white.opacity(0.15))
-                                .cornerRadius(10)
                         }
                         .padding(.top, 20)
+                        .onAppear {
+                            defaultLanguage = supabase.defaultLanguage
+                        }
                         
                         // Settings Sections
                         VStack(spacing: 16) {
@@ -48,7 +45,11 @@ struct SettingsView: View {
                                     icon: "globe",
                                     title: "Default Language",
                                     selectedLanguage: $defaultLanguage,
-                                    languages: languages
+                                    languages: languages,
+                                    isSaving: $isSavingLanguage,
+                                    onSave: {
+                                        saveLanguage()
+                                    }
                                 )
                             }
                             
@@ -56,7 +57,7 @@ struct SettingsView: View {
                             SettingsSection(title: "Account") {
                                 SettingsButton(
                                     icon: "arrow.right.square.fill",
-                                    title: "Logout",
+                                    title: isLoggingOut ? "Logging out..." : "Logout",
                                     destructive: true,
                                     action: {
                                         showLogoutAlert = true
@@ -87,11 +88,47 @@ struct SettingsView: View {
             .alert("Logout", isPresented: $showLogoutAlert) {
                 Button("Cancel", role: .cancel) {}
                 Button("Logout", role: .destructive) {
-                    // Handle logout - set isLoggedIn to false to return to login
-                    isLoggedIn = false
+                    handleLogout()
                 }
             } message: {
                 Text("Are you sure you want to logout?")
+            }
+            .disabled(isLoggingOut)
+        }
+    }
+    
+    private func saveLanguage() {
+        isSavingLanguage = true
+        
+        Task {
+            do {
+                try await supabase.updateDefaultLanguage(defaultLanguage)
+                await MainActor.run {
+                    isSavingLanguage = false
+                }
+            } catch {
+                await MainActor.run {
+                    isSavingLanguage = false
+                    print("Error saving language: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+    
+    private func handleLogout() {
+        isLoggingOut = true
+        
+        Task {
+            do {
+                try await supabase.signOut()
+                await MainActor.run {
+                    isLoggingOut = false
+                }
+            } catch {
+                await MainActor.run {
+                    isLoggingOut = false
+                    print("Logout error: \(error.localizedDescription)")
+                }
             }
         }
     }
@@ -163,6 +200,8 @@ struct SettingsLanguagePicker: View {
     let title: String
     @Binding var selectedLanguage: String
     let languages: [String]
+    @Binding var isSaving: Bool
+    let onSave: () -> Void
     @State private var showPicker = false
     
     var body: some View {
@@ -179,9 +218,15 @@ struct SettingsLanguagePicker: View {
                 
                 Spacer()
                 
-                Text(selectedLanguage)
-                    .font(.body)
-                    .foregroundStyle(.white.opacity(0.6))
+                if isSaving {
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(0.8)
+                } else {
+                    Text(selectedLanguage)
+                        .font(.body)
+                        .foregroundStyle(.white.opacity(0.6))
+                }
                 
                 Image(systemName: "chevron.right")
                     .font(.caption)
@@ -191,10 +236,12 @@ struct SettingsLanguagePicker: View {
             .background(Color.white.opacity(0.0))
         }
         .buttonStyle(.plain)
+        .disabled(isSaving)
         .confirmationDialog("Select Default Language", isPresented: $showPicker, titleVisibility: .visible) {
             ForEach(languages, id: \.self) { language in
                 Button(language) {
                     selectedLanguage = language
+                    onSave()
                 }
             }
         }

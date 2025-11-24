@@ -6,6 +6,15 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		321FE7142ED3DC2C00C48E9B /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 321FE7132ED3DC2C00C48E9B /* Auth */; };
+		321FE7162ED3DC2C00C48E9B /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 321FE7152ED3DC2C00C48E9B /* Functions */; };
+		321FE7182ED3DC2C00C48E9B /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 321FE7172ED3DC2C00C48E9B /* PostgREST */; };
+		321FE71A2ED3DC2C00C48E9B /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = 321FE7192ED3DC2C00C48E9B /* Realtime */; };
+		321FE71C2ED3DC2C00C48E9B /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = 321FE71B2ED3DC2C00C48E9B /* Storage */; };
+		321FE71E2ED3DC6D00C48E9B /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 321FE71D2ED3DC6D00C48E9B /* Supabase */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		32DB2ECA2E9E861500A28E26 /* LinguaLens.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LinguaLens.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +32,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				321FE7182ED3DC2C00C48E9B /* PostgREST in Frameworks */,
+				321FE7162ED3DC2C00C48E9B /* Functions in Frameworks */,
+				321FE71E2ED3DC6D00C48E9B /* Supabase in Frameworks */,
+				321FE7142ED3DC2C00C48E9B /* Auth in Frameworks */,
+				321FE71C2ED3DC2C00C48E9B /* Storage in Frameworks */,
+				321FE71A2ED3DC2C00C48E9B /* Realtime in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +80,12 @@
 			);
 			name = LinguaLens;
 			packageProductDependencies = (
+				321FE7132ED3DC2C00C48E9B /* Auth */,
+				321FE7152ED3DC2C00C48E9B /* Functions */,
+				321FE7172ED3DC2C00C48E9B /* PostgREST */,
+				321FE7192ED3DC2C00C48E9B /* Realtime */,
+				321FE71B2ED3DC2C00C48E9B /* Storage */,
+				321FE71D2ED3DC6D00C48E9B /* Supabase */,
 			);
 			productName = LinguaLens;
 			productReference = 32DB2ECA2E9E861500A28E26 /* LinguaLens.app */;
@@ -78,7 +99,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2600;
-				LastUpgradeCheck = 2600;
+				LastUpgradeCheck = 2610;
 				TargetAttributes = {
 					32DB2EC92E9E861500A28E26 = {
 						CreatedOnToolsVersion = 26.0.1;
@@ -94,6 +115,9 @@
 			);
 			mainGroup = 32DB2EC12E9E861500A28E26;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				32E52CEE2ED3D7E900EDF315 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 32DB2ECB2E9E861500A28E26 /* Products */;
 			projectDirPath = "";
@@ -159,6 +183,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -181,6 +206,7 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -220,6 +246,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -235,6 +262,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -246,6 +274,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -288,6 +317,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -345,6 +375,50 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		32E52CEE2ED3D7E900EDF315 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		321FE7132ED3DC2C00C48E9B /* Auth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 32E52CEE2ED3D7E900EDF315 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Auth;
+		};
+		321FE7152ED3DC2C00C48E9B /* Functions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 32E52CEE2ED3D7E900EDF315 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Functions;
+		};
+		321FE7172ED3DC2C00C48E9B /* PostgREST */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 32E52CEE2ED3D7E900EDF315 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = PostgREST;
+		};
+		321FE7192ED3DC2C00C48E9B /* Realtime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 32E52CEE2ED3D7E900EDF315 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Realtime;
+		};
+		321FE71B2ED3DC2C00C48E9B /* Storage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 32E52CEE2ED3D7E900EDF315 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Storage;
+		};
+		321FE71D2ED3DC6D00C48E9B /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 32E52CEE2ED3D7E900EDF315 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 32DB2EC22E9E861500A28E26 /* Project object */;
 }

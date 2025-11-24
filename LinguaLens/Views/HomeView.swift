@@ -2,12 +2,12 @@ import SwiftUI
 
 struct HomeView: View {
     let email: String
-    @AppStorage("isLoggedIn") private var isLoggedIn = true
+    @StateObject private var supabase = SupabaseManager.shared
     @State private var selectedTab = 0
     
     var body: some View {
         ZStack {
-            if !isLoggedIn {
+            if !supabase.isAuthenticated {
                 EntryView()
                     .transition(.opacity)
             } else {
