@@ -1,22 +1,11 @@
 import SwiftUI
 
-struct TranslationItem: Identifiable {
-    let id = UUID()
-    let originalText: String
-    let translatedText: String
-    let sourceLanguage: String
-    let targetLanguage: String
-    let date: Date
-    let imageName: String?
-}
-
 struct HistoryView: View {
     let email: String
-    @State private var translations: [TranslationItem] = [
-        TranslationItem(originalText: "What's the point of legal injuctions AFTER a Data Breach?\n\nAre legal injuctions just symbolic gestures, or do they serve a genuine purpose in the aftermath of data breaches?\n\nIn my video, I investigate the intentions behind these court orders and explore the perspectives of different stakeholders.\n\nFind out why organisations are adding this tool to their incident response strategy.\n\nClick to watch and share your thoughts!", translatedText: "¿Cuál es el propósito de las medidas judiciales después de una filtración de datos?\n\n¿Son las medidas judiciales solo gestos simbólicos, o realmente cumplen una función genuina tras una violación de datos?\n\nEn mi video, analizo las intenciones detrás de estas órdenes judiciales y exploro las perspectivas de los diferentes actores involucrados.\n\nDescubre por qué las organizaciones están incorporando esta herramienta en su estrategia de respuesta a incidentes.\n\n¡Haz clic para ver el video y comparte tus opiniones!", sourceLanguage: "English", targetLanguage: "Spanish", date: Date().addingTimeInterval(-86400), imageName: "example1"),
-        TranslationItem(originalText: "\"Episodio 38 - Cómo saber si tu idea es una mierda antes de perder dinero\"\n\nCrees que la gente te dice la verdad cuando le cuentas tu idea.\n\nPues no.\n\nTe mienten.\n\nTu madre, tus colegas, tus futuros clientes... todos.\n\nNo por maldad. Por educación.\n\nY por eso hay tanta gente quemando dinero, tiempo y neuronas en proyectos que nadie quiere.\n\nEn este episodio te doy 5 técnicas para hacer que los clientes te digan la verdad, aunque no quieran.\n\n\nEste domingo 19 estará disponible\n\n24 minutos y 28 segundos", translatedText: "\"Episode 38 - How to Know if Your Idea is Crap Before You Lose Money\"\n\nDo you think people tell you the truth when you share your idea with them?\n\nWell, no.\n\nThey lie to you.\n\nYour mom, your colleagues, your future clients… everyone.\n\nNot out of malice. Out of politeness.\n\nAnd that's why so many people are burning money, time, and brainpower on projects nobody wants.\n\nIn this episode, I give you 5 techniques to make clients tell you the truth—even when they don't want to.\n\n\nThis Sunday the 19th it will be available\n\n24 minutes and 28 seconds", sourceLanguage: "Spanish", targetLanguage: "English", date: Date().addingTimeInterval(-172800), imageName: "example2")
-    ]
-    @State private var selectedItem: TranslationItem?
+    @StateObject private var supabase = SupabaseManager.shared
+    @State private var selectedItem: Translation?
+    @State private var isLoading = true
+    @State private var showDeleteAlert = false
     
     var body: some View {
         NavigationStack {
@@ -27,7 +16,11 @@ struct HistoryView: View {
                                endPoint: .bottomTrailing)
                     .ignoresSafeArea()
                 
-                if translations.isEmpty {
+                if isLoading {
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(1.5)
+                } else if supabase.translations.isEmpty {
                     VStack(spacing: 16) {
                         Image(systemName: "clock.badge.questionmark")
                             .font(.system(size: 70))
@@ -45,7 +38,7 @@ struct HistoryView: View {
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 16) {
-                            ForEach(translations) { item in
+                            ForEach(supabase.translations) { item in
                                 TranslationCard(item: item)
                                     .onTapGesture {
                                         selectedItem = item
@@ -55,6 +48,9 @@ struct HistoryView: View {
                         .padding(.horizontal, 20)
                         .padding(.top, 20)
                         .padding(.bottom, 40)
+                    }
+                    .refreshable {
+                        await supabase.fetchTranslations()
                     }
                 }
             }
@@ -67,10 +63,10 @@ struct HistoryView: View {
                         .foregroundStyle(.white)
                 }
                 
-                if !translations.isEmpty {
+                if !supabase.translations.isEmpty {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button {
-                            translations.removeAll()
+                            showDeleteAlert = true
                         } label: {
                             Image(systemName: "trash")
                                 .foregroundStyle(.white.opacity(0.8))
@@ -81,37 +77,58 @@ struct HistoryView: View {
             .sheet(item: $selectedItem) { item in
                 TranslationDetailSheet(item: item)
             }
+            .alert("Delete All Translations", isPresented: $showDeleteAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete All", role: .destructive) {
+                    Task {
+                        do {
+                            try await supabase.deleteAllTranslations()
+                        } catch {
+                            print("Error deleting translations: \(error)")
+                        }
+                    }
+                }
+            } message: {
+                Text("Are you sure you want to delete all your translation history? This action cannot be undone.")
+            }
+            .task {
+                await supabase.fetchTranslations()
+                isLoading = false
+            }
         }
     }
 }
 
 struct TranslationCard: View {
-    let item: TranslationItem
+    let item: Translation
     
     var body: some View {
         HStack(spacing: 12) {
             // Thumbnail image if available
-            if let imageName = item.imageName {
-                Image(imageName)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 60, height: 60)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                    )
-            } else {
-                // Placeholder icon when no image
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.white.opacity(0.1))
-                        .frame(width: 60, height: 60)
-                    
-                    Image(systemName: "doc.text")
-                        .font(.title3)
-                        .foregroundStyle(.white.opacity(0.6))
+            if let imageUrl = item.imageUrl {
+                AsyncImage(url: URL(string: imageUrl)) { phase in
+                    switch phase {
+                    case .empty:
+                        ProgressView()
+                            .frame(width: 60, height: 60)
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 60, height: 60)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    case .failure:
+                        placeholderIcon
+                    @unknown default:
+                        placeholderIcon
+                    }
                 }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                )
+            } else {
+                placeholderIcon
             }
             
             VStack(alignment: .leading, spacing: 12) {
@@ -130,7 +147,7 @@ struct TranslationCard: View {
                     
                     Spacer()
                     
-                    Text(item.date, style: .relative)
+                    Text(item.createdAt, style: .relative)
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.6))
                 }
@@ -157,12 +174,26 @@ struct TranslationCard: View {
                 .stroke(Color.white.opacity(0.3), lineWidth: 1)
         )
     }
+    
+    private var placeholderIcon: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.white.opacity(0.1))
+                .frame(width: 60, height: 60)
+            
+            Image(systemName: "doc.text")
+                .font(.title3)
+                .foregroundStyle(.white.opacity(0.6))
+        }
+    }
 }
 
 struct TranslationDetailSheet: View {
-    let item: TranslationItem
+    let item: Translation
+    @StateObject private var supabase = SupabaseManager.shared
     @Environment(\.dismiss) var dismiss
     @State private var showFullScreenImage = false
+    @State private var showDeleteAlert = false
     
     var body: some View {
         NavigationStack {
@@ -180,7 +211,7 @@ struct TranslationDetailSheet: View {
                                 Text("Translation")
                                     .font(.caption)
                                     .foregroundStyle(.white.opacity(0.7))
-                                Text(item.date, style: .date)
+                                Text(item.createdAt, style: .date)
                                     .font(.subheadline)
                                     .foregroundStyle(.white)
                             }
@@ -205,7 +236,7 @@ struct TranslationDetailSheet: View {
                         }
                         
                         // Image Section
-                        if let imageName = item.imageName {
+                        if let imageUrl = item.imageUrl {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Captured Image")
                                     .font(.headline)
@@ -214,31 +245,47 @@ struct TranslationDetailSheet: View {
                                 Button {
                                     showFullScreenImage = true
                                 } label: {
-                                    Image(imageName)
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(maxWidth: .infinity)
-                                        .frame(maxHeight: 200)
-                                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 16)
-                                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                                        )
-                                        .overlay(
-                                            VStack {
+                                    AsyncImage(url: URL(string: imageUrl)) { phase in
+                                        switch phase {
+                                        case .empty:
+                                            ProgressView()
+                                                .frame(maxWidth: .infinity)
+                                                .frame(height: 200)
+                                        case .success(let image):
+                                            image
+                                                .resizable()
+                                                .scaledToFit()
+                                                .frame(maxWidth: .infinity)
+                                                .frame(maxHeight: 200)
+                                        case .failure:
+                                            Text("Failed to load image")
+                                                .foregroundStyle(.white.opacity(0.6))
+                                                .frame(maxWidth: .infinity)
+                                                .frame(height: 200)
+                                        @unknown default:
+                                            EmptyView()
+                                        }
+                                    }
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                                    )
+                                    .overlay(
+                                        VStack {
+                                            Spacer()
+                                            HStack {
                                                 Spacer()
-                                                HStack {
-                                                    Spacer()
-                                                    Image(systemName: "arrow.up.left.and.arrow.down.right")
-                                                        .font(.caption)
-                                                        .foregroundStyle(.white)
-                                                        .padding(8)
-                                                        .background(Color.black.opacity(0.5))
-                                                        .clipShape(Circle())
-                                                        .padding(8)
-                                                }
+                                                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.white)
+                                                    .padding(8)
+                                                    .background(Color.black.opacity(0.5))
+                                                    .clipShape(Circle())
+                                                    .padding(8)
                                             }
-                                        )
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -292,6 +339,22 @@ struct TranslationDetailSheet: View {
                                 .background(Color.white.opacity(0.2))
                                 .cornerRadius(16)
                         }
+                        
+                        // Delete Button
+                        Button {
+                            showDeleteAlert = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "trash.fill")
+                                Text("Delete Translation")
+                            }
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.red.opacity(0.7))
+                            .foregroundColor(.white)
+                            .cornerRadius(16)
+                        }
                     }
                     .padding(24)
                 }
@@ -314,14 +377,31 @@ struct TranslationDetailSheet: View {
                 }
             }
             .fullScreenCover(isPresented: $showFullScreenImage) {
-                FullScreenImageView(imageName: item.imageName ?? "")
+                if let imageUrl = item.imageUrl {
+                    FullScreenImageView(imageUrl: imageUrl)
+                }
+            }
+            .alert("Delete Translation", isPresented: $showDeleteAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete", role: .destructive) {
+                    Task {
+                        do {
+                            try await supabase.deleteTranslation(id: item.id)
+                            dismiss()
+                        } catch {
+                            print("Error deleting translation: \(error)")
+                        }
+                    }
+                }
+            } message: {
+                Text("Are you sure you want to delete this translation?")
             }
         }
     }
 }
 
 struct FullScreenImageView: View {
-    let imageName: String
+    let imageUrl: String
     @Environment(\.dismiss) var dismiss
     @State private var scale: CGFloat = 1.0
     @State private var lastScale: CGFloat = 1.0
@@ -330,44 +410,56 @@ struct FullScreenImageView: View {
         ZStack {
             Color.black.ignoresSafeArea()
             
-            Image(imageName)
-                .resizable()
-                .scaledToFit()
-                .scaleEffect(scale)
-                .gesture(
-                    MagnificationGesture()
-                        .onChanged { value in
-                            scale = lastScale * value
-                        }
-                        .onEnded { value in
-                            lastScale = scale
-                            // Reset if zoomed out too much
-                            if scale < 1.0 {
-                                withAnimation {
+            AsyncImage(url: URL(string: imageUrl)) { phase in
+                switch phase {
+                case .empty:
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(1.5)
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFit()
+                        .scaleEffect(scale)
+                        .gesture(
+                            MagnificationGesture()
+                                .onChanged { value in
+                                    scale = lastScale * value
+                                }
+                                .onEnded { value in
+                                    lastScale = scale
+                                    if scale < 1.0 {
+                                        withAnimation {
+                                            scale = 1.0
+                                            lastScale = 1.0
+                                        }
+                                    }
+                                    if scale > 4.0 {
+                                        withAnimation {
+                                            scale = 4.0
+                                            lastScale = 4.0
+                                        }
+                                    }
+                                }
+                        )
+                        .onTapGesture(count: 2) {
+                            withAnimation {
+                                if scale > 1.0 {
                                     scale = 1.0
                                     lastScale = 1.0
-                                }
-                            }
-                            // Limit maximum zoom
-                            if scale > 4.0 {
-                                withAnimation {
-                                    scale = 4.0
-                                    lastScale = 4.0
+                                } else {
+                                    scale = 2.0
+                                    lastScale = 2.0
                                 }
                             }
                         }
-                )
-                .onTapGesture(count: 2) {
-                    withAnimation {
-                        if scale > 1.0 {
-                            scale = 1.0
-                            lastScale = 1.0
-                        } else {
-                            scale = 2.0
-                            lastScale = 2.0
-                        }
-                    }
+                case .failure:
+                    Text("Failed to load image")
+                        .foregroundStyle(.white)
+                @unknown default:
+                    EmptyView()
                 }
+            }
             
             VStack {
                 HStack {
