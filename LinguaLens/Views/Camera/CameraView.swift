@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import AVFoundation
 
 struct CameraView: View {
     @StateObject private var supabase = SupabaseManager.shared
@@ -11,17 +12,23 @@ struct CameraView: View {
     @State private var isProcessing = false
     @State private var errorMessage = ""
     @State private var showError = false
+    @State private var showCameraNotAvailableAlert = false
     
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(gradient: Gradient(colors: [Color.indigo.opacity(0.9),
-                                                           Color.purple.opacity(0.9)]),
-                               startPoint: .topLeading,
-                               endPoint: .bottomTrailing)
-                    .ignoresSafeArea()
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color.indigo.opacity(0.9),
+                        Color.purple.opacity(0.9)
+                    ]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
                 
                 VStack(spacing: 32) {
+                    
                     VStack(spacing: 12) {
                         Image(systemName: "text.viewfinder")
                             .font(.system(size: 80))
@@ -54,9 +61,9 @@ struct CameraView: View {
                     }
                     
                     VStack(spacing: 20) {
-                        // Camera Button
+                        
                         Button {
-                            showCamera = true
+                            checkCameraAvailability()
                         } label: {
                             HStack(spacing: 12) {
                                 Image(systemName: "camera.fill")
@@ -73,7 +80,6 @@ struct CameraView: View {
                         }
                         .disabled(isProcessing)
                         
-                        // Photo Library Button
                         PhotosPicker(selection: $selectedImage, matching: .images) {
                             HStack(spacing: 12) {
                                 Image(systemName: "photo.on.rectangle")
@@ -107,19 +113,20 @@ struct CameraView: View {
             .sheet(isPresented: $showCamera) {
                 CameraCapture(capturedImage: $capturedImage)
             }
-            .onChange(of: selectedImage) { oldValue, newValue in
+            .onChange(of: selectedImage) { _, newValue in
                 Task {
-                    if let newValue {
-                        await processSelectedImage(newValue)
-                    }
+                    if let newValue { await processSelectedImage(newValue) }
                 }
             }
-            .onChange(of: capturedImage) { oldValue, newValue in
-                if let image = newValue {
-                    Task {
-                        await processImage(image)
-                    }
+            .onChange(of: capturedImage) { _, newValue in
+                if let img = newValue {
+                    Task { await processImage(img) }
                 }
+            }
+            .alert("Camera Not Available", isPresented: $showCameraNotAvailableAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Camera is not available on this device or camera access has been denied. Please check your device settings.")
             }
             .alert("Error", isPresented: $showError) {
                 Button("OK", role: .cancel) {}
@@ -129,13 +136,39 @@ struct CameraView: View {
         }
     }
     
+    private func checkCameraAvailability() {
+        guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
+            showCameraNotAvailableAlert = true
+            return
+        }
+        
+        let cameraAuthStatus = AVCaptureDevice.authorizationStatus(for: .video)
+        
+        switch cameraAuthStatus {
+        case .authorized:
+            showCamera = true
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                DispatchQueue.main.async {
+                    self.showCamera = granted
+                    self.showCameraNotAvailableAlert = !granted
+                }
+            }
+        case .denied, .restricted:
+            showCameraNotAvailableAlert = true
+        default:
+            showCameraNotAvailableAlert = true
+        }
+    }
+    
     private func processSelectedImage(_ item: PhotosPickerItem) async {
         isProcessing = true
         defer { isProcessing = false }
         
         do {
             guard let data = try await item.loadTransferable(type: Data.self),
-                  let image = UIImage(data: data) else {
+                  let image = UIImage(data: data)
+            else {
                 await MainActor.run {
                     errorMessage = "Failed to load image"
                     showError = true
@@ -143,7 +176,9 @@ struct CameraView: View {
                 return
             }
             
-            await processImage(image)
+            // Directly process without cropping
+            capturedImage = image
+            
         } catch {
             await MainActor.run {
                 errorMessage = "Error loading image: \(error.localizedDescription)"
@@ -160,7 +195,6 @@ struct CameraView: View {
             let text = try await OCRService.shared.recognizeText(from: image)
             
             await MainActor.run {
-                self.capturedImage = image
                 self.extractedText = text
                 self.showTranslation = true
             }
@@ -173,7 +207,6 @@ struct CameraView: View {
     }
 }
 
-// Updated Camera Capture View
 struct CameraCapture: UIViewControllerRepresentable {
     @Binding var capturedImage: UIImage?
     @Environment(\.dismiss) var dismiss
@@ -181,32 +214,44 @@ struct CameraCapture: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.sourceType = .camera
+        picker.cameraCaptureMode = .photo
+        picker.cameraDevice = .rear
+        picker.showsCameraControls = true
+        picker.allowsEditing = false
         picker.delegate = context.coordinator
         return picker
     }
     
     func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
     
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
     
     class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
         let parent: CameraCapture
         
-        init(_ parent: CameraCapture) {
-            self.parent = parent
-        }
+        init(_ parent: CameraCapture) { self.parent = parent }
         
-        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+        func imagePickerController(
+            _ picker: UIImagePickerController,
+            didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]
+        ) {
             if let image = info[.originalImage] as? UIImage {
-                parent.capturedImage = image
+                parent.capturedImage = fixOrientation(img: image)
             }
             parent.dismiss()
         }
         
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
             parent.dismiss()
+        }
+        
+        private func fixOrientation(img: UIImage) -> UIImage {
+            if img.imageOrientation == .up { return img }
+            UIGraphicsBeginImageContextWithOptions(img.size, false, img.scale)
+            img.draw(in: CGRect(origin: .zero, size: img.size))
+            let normalized = UIGraphicsGetImageFromCurrentImageContext() ?? img
+            UIGraphicsEndImageContext()
+            return normalized
         }
     }
 }
