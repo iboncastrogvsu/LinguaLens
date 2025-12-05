@@ -3,7 +3,7 @@ import Foundation
 class TranslationService {
     static let shared = TranslationService()
     
-    private let apiKey = "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"
+    private let apiKey = "<groq-api-key>"
     
     private init() {}
     
