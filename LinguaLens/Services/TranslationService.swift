@@ -3,8 +3,7 @@ import Foundation
 class TranslationService {
     static let shared = TranslationService()
     
-    // Replace with your Groq API key
-    private let apiKey = "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"
+    private let apiKey = "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"
     
     private init() {}
     
